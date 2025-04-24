@@ -1,7 +1,7 @@
 // src/app/api/teams/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 import dbConnect from '@/lib/mongoose';
 import Team from '@/models/Team';
 import User from '@/models/User';

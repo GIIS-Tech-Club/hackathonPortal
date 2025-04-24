@@ -1,7 +1,7 @@
 // src/app/api/announcements/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 import dbConnect from '@/lib/mongoose';
 import Announcement from '@/models/Announcement';
 
@@ -11,7 +11,6 @@ export async function GET(
     { params }: { params: { id: string } }
 ) {
     try {
-        const { id } = await params;
         const session = await getServerSession(authOptions);
 
         if (!session || !session.user) {
@@ -23,7 +22,7 @@ export async function GET(
 
         await dbConnect();
 
-        const announcement = await Announcement.findById(id);
+        const announcement = await Announcement.findById(params.id);
 
         if (!announcement) {
             return NextResponse.json(
@@ -51,7 +50,6 @@ export async function PUT(
     { params }: { params: { id: string } }
 ) {
     try {
-        const { id } = await params;
         const session = await getServerSession(authOptions);
 
         if (!session || !session.user) {
@@ -71,7 +69,7 @@ export async function PUT(
 
         await dbConnect();
 
-        const announcement = await Announcement.findById(id);
+        const announcement = await Announcement.findById(params.id);
 
         if (!announcement) {
             return NextResponse.json(
@@ -113,7 +111,6 @@ export async function DELETE(
     { params }: { params: { id: string } }
 ) {
     try {
-        const { id } = await params;
         const session = await getServerSession(authOptions);
 
         if (!session || !session.user) {
@@ -133,7 +130,7 @@ export async function DELETE(
 
         await dbConnect();
 
-        const announcement = await Announcement.findById(id);
+        const announcement = await Announcement.findById(params.id);
 
         if (!announcement) {
             return NextResponse.json(
@@ -142,7 +139,7 @@ export async function DELETE(
             );
         }
 
-        await Announcement.deleteOne({ _id: id });
+        await Announcement.deleteOne({ _id: params.id });
 
         return NextResponse.json(
             { message: 'Announcement deleted successfully' },
