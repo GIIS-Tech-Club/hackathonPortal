@@ -22,7 +22,7 @@ jobs:
           TARGET_MONGODB_DB: preview,development,production
           TYPE_MONGODB_DB: encrypted
 
-          SPREADSHEET_ID: ${{ secrets.NEXTAUTH_SECRET }}
+          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
           TARGET_NEXTAUTH_SECRET: preview,development,production
           TYPE_NEXTAUTH_SECRET: encrypted
 
