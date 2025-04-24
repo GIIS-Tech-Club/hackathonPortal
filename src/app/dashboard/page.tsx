@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import DashboardLayout from './components/DashboardLayout';
+import AnnouncementsSection from './components/AnnouncementsSection';
 import {
     FaUsers, FaBullhorn, FaMapMarkerAlt, FaUserPlus,
     FaTrophy, FaStar, FaClipboard, FaCheck, FaExternalLinkAlt
@@ -49,7 +50,6 @@ export default function Dashboard() {
     const [userTeam, setUserTeam] = useState<Team | null>(null);
     const [tableNumber, setTableNumber] = useState<string | null>(null);
     const [tableMap, setTableMap] = useState<string | null>(null);
-    const [announcements, setAnnouncements] = useState([]);
     const [activeEvent, setActiveEvent] = useState<JudgingEvent | null>(null);
     const [judgingResults, setJudgingResults] = useState<JudgingResult | null>(null);
     const [success, setSuccess] = useState('');
@@ -206,8 +206,10 @@ export default function Dashboard() {
                     <div className="bg-gray-800 p-6 rounded-lg shadow-md">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-gray-400 mb-1">Announcements</p>
-                                <p className="text-2xl font-bold">{announcements.length || 0}</p>
+                                <p className="text-gray-400 mb-1">Event Status</p>
+                                <p className="text-2xl font-bold">
+                                    {activeEvent ? activeEvent.status : 'No Active Event'}
+                                </p>
                             </div>
                             <FaBullhorn className="text-3xl text-indigo-500" />
                         </div>
@@ -383,13 +385,8 @@ export default function Dashboard() {
                     )}
                 </div>
 
-                {/* Announcements */}
-                <div className="bg-gray-800 rounded-lg shadow-md p-6">
-                    <h2 className="text-xl font-semibold mb-4">Announcements</h2>
-                    <div className="p-8 text-center text-gray-400">
-                        <p>No announcements yet.</p>
-                    </div>
-                </div>
+                {/* Announcements Section - Using the component */}
+                <AnnouncementsSection />
             </div>
         </DashboardLayout>
     );
