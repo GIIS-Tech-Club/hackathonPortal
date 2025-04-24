@@ -18,8 +18,8 @@ jobs:
           TARGET_MONGODB_URI: preview,development,production
           TYPE_MONGODB_URI: encrypted
 
-          PRIVATE_KEY: ${{ secrets.MONGODB_DB }}
-          TARGET_PRIVATE_KEY: preview,development,production
+          MONGODB_DB: ${{ secrets.MONGODB_DB }}
+          TARGET_MONGODB_DB: preview,development,production
           TYPE_MONGODB_DB: encrypted
 
           SPREADSHEET_ID: ${{ secrets.NEXTAUTH_SECRET }}
