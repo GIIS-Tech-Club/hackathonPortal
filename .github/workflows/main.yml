@@ -20,7 +20,7 @@ jobs:
 
           MONGODB_DB: ${{ secrets.MONGODB_DB }}
           TARGET_MONGODB_DB: preview,development,production
-          TYPE_MONGODB_DB: encrypted
+          TYPE_MONGODB_DB: plain
 
           NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
           TARGET_NEXTAUTH_SECRET: preview,development,production
