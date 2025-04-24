@@ -12,7 +12,7 @@ jobs:
         with:
           token: ${{ secrets.VERCEL_TOKEN }}
           projectName: hackportal
-          envVariableKeys: MONGODB_URI,MONGODB_DB,NEXTAUTH_SECRET,NEXTAUTH_URL,EMAIL_HOST,EMAIL_PORT,EMAIL_USER,EMAIL_PASS,EMAIL_FROM,EMAIL_SECURE
+          envVariableKeys: MONGODB_URI,NEXTAUTH_SECRET,NEXTAUTH_URL,EMAIL_HOST,EMAIL_PORT,EMAIL_USER,EMAIL_PASS,EMAIL_FROM,EMAIL_SECURE
         env:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
           TARGET_MONGODB_URI: preview,development,production
