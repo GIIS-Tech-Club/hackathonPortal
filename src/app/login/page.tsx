@@ -1,34 +1,43 @@
 // src/app/login/page.tsx
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { signIn, useSession } from 'next-auth/react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { FaRocket, FaEnvelope, FaLock } from 'react-icons/fa';
 
-export default function Login() {
+// Create a separate component that uses useSearchParams
+function LoginWithParams() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState('');
     const router = useRouter();
-    const searchParams = useSearchParams();
     const { status } = useSession();
+
+    // Move the useSearchParams to a client component that's wrapped in Suspense
+    const [registrationSuccess, setRegistrationSuccess] = useState(false);
+
+    // useEffect for checking searchParams
+    useEffect(() => {
+        // Get the search params from URL manually
+        const urlParams = new URLSearchParams(window.location.search);
+        const registered = urlParams.get('registered');
+
+        if (registered === 'true') {
+            setRegistrationSuccess(true);
+            setSuccess('Registration successful! Please log in with your credentials.');
+        }
+    }, []);
 
     useEffect(() => {
         // Check if user is already logged in
         if (status === 'authenticated') {
             router.push('/dashboard');
         }
-
-        // Check if redirected from registration
-        const registered = searchParams.get('registered');
-        if (registered === 'true') {
-            setSuccess('Registration successful! Please log in with your credentials.');
-        }
-    }, [status, router, searchParams]);
+    }, [status, router]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -144,5 +153,21 @@ export default function Login() {
                 </div>
             </div>
         </div>
+    );
+}
+
+// Main page component with Suspense
+export default function Login() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+                <div className="text-white text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500 mx-auto mb-4"></div>
+                    <p>Loading...</p>
+                </div>
+            </div>
+        }>
+            <LoginWithParams />
+        </Suspense>
     );
 }
