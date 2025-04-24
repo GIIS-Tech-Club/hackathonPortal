@@ -11,6 +11,7 @@ export async function GET(
     { params }: { params: { id: string } }
 ) {
     try {
+        const { id } = await params;
         const session = await getServerSession(authOptions);
 
         if (!session || !session.user) {
@@ -22,7 +23,7 @@ export async function GET(
 
         await dbConnect();
 
-        const announcement = await Announcement.findById(params.id);
+        const announcement = await Announcement.findById(id);
 
         if (!announcement) {
             return NextResponse.json(
@@ -50,6 +51,7 @@ export async function PUT(
     { params }: { params: { id: string } }
 ) {
     try {
+        const { id } = await params;
         const session = await getServerSession(authOptions);
 
         if (!session || !session.user) {
@@ -69,7 +71,7 @@ export async function PUT(
 
         await dbConnect();
 
-        const announcement = await Announcement.findById(params.id);
+        const announcement = await Announcement.findById(id);
 
         if (!announcement) {
             return NextResponse.json(
@@ -111,6 +113,7 @@ export async function DELETE(
     { params }: { params: { id: string } }
 ) {
     try {
+        const { id } = await params;
         const session = await getServerSession(authOptions);
 
         if (!session || !session.user) {
@@ -130,7 +133,7 @@ export async function DELETE(
 
         await dbConnect();
 
-        const announcement = await Announcement.findById(params.id);
+        const announcement = await Announcement.findById(id);
 
         if (!announcement) {
             return NextResponse.json(
@@ -139,7 +142,7 @@ export async function DELETE(
             );
         }
 
-        await Announcement.deleteOne({ _id: params.id });
+        await Announcement.deleteOne({ _id: id });
 
         return NextResponse.json(
             { message: 'Announcement deleted successfully' },
