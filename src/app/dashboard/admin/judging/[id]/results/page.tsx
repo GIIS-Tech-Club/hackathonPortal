@@ -1,4 +1,3 @@
-// src/app/dashboard/admin/judging/[id]/results/page.tsx
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -18,34 +17,21 @@ interface JudgingEvent {
     name: string;
     type: 'demo_participants' | 'demo_judges' | 'pitching';
     status: 'setup' | 'active' | 'completed';
+    resultsPublished: boolean;
 }
 
-interface Team {
-    _id: string;
-    name: string;
-    description?: string;
-    category: string;
-    tableNumber?: string;
-    score: number;
-    confidence: number;
-    timesJudged: number;
-}
-
-interface JudgingResult {
-    _id: string;
+interface TeamResult {
     team: {
         _id: string;
         name: string;
+        tableNumber?: string;
     };
-    judge: {
-        _id: string;
-        name: string;
-        type: string;
-    };
-    scores: Record<string, number>;
-    overallScore: number;
-    comments: string;
-    timestamp: string;
+    score: number;
+    rank: number;
+    timesJudged: number;
+    confidence: number;
+    totalTeams: number;
+    category?: string;
 }
 
 interface JudgingCriteria {
@@ -65,8 +51,7 @@ export default function JudgingResults() {
 
     const [loading, setLoading] = useState(true);
     const [event, setEvent] = useState<JudgingEvent | null>(null);
-    const [teams, setTeams] = useState<Team[]>([]);
-    const [results, setResults] = useState<JudgingResult[]>([]);
+    const [teamResults, setTeamResults] = useState<TeamResult[]>([]);
     const [criteria, setCriteria] = useState<JudgingCriteria[]>([]);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
@@ -87,7 +72,6 @@ export default function JudgingResults() {
             } else {
                 fetchEvent();
                 fetchTeams();
-                fetchResults();
                 fetchCriteria();
             }
         }
@@ -116,32 +100,27 @@ export default function JudgingResults() {
             const response = await fetch(`/api/judging/results/teams?eventId=${eventId}`);
             const data = await response.json();
 
-            if (response.ok) {
-                setTeams(data.teams || []);
+            if (response.ok && data.results) {
+                // Format the data according to our interface
+                const formattedResults: TeamResult[] = data.results.map((result: any) => ({
+                    team: result.team,
+                    score: result.score,
+                    rank: result.rank,
+                    timesJudged: result.timesJudged,
+                    confidence: result.confidence,
+                    totalTeams: result.totalTeams,
+                    category: result.category || 'other' // Default to 'other' if category is missing
+                }));
+
+                setTeamResults(formattedResults);
             } else {
-                setError(data.message);
+                setError(data.message || 'Failed to fetch teams');
             }
         } catch (err) {
             setError('Failed to fetch teams');
             console.error(err);
         } finally {
             setLoading(false);
-        }
-    };
-
-    const fetchResults = async () => {
-        try {
-            const response = await fetch(`/api/judging/results?eventId=${eventId}`);
-            const data = await response.json();
-
-            if (response.ok) {
-                setResults(data.results || []);
-            } else {
-                setError(data.message);
-            }
-        } catch (err) {
-            setError('Failed to fetch judging results');
-            console.error(err);
         }
     };
 
@@ -193,31 +172,14 @@ export default function JudgingResults() {
 
     const downloadResults = () => {
         // Create CSV content
-        const headers = ['Team Name', 'Category', 'Table Number', 'Score', 'Times Judged'];
-        const rows = teams
-            .filter(team => {
-                if (searchTerm === '') return true;
-                return team.name.toLowerCase().includes(searchTerm.toLowerCase());
-            })
-            .sort((a, b) => {
-                if (sortField === 'score') {
-                    return sortDirection === 'desc' ? b.score - a.score : a.score - b.score;
-                } else if (sortField === 'name') {
-                    return sortDirection === 'desc'
-                        ? b.name.localeCompare(a.name)
-                        : a.name.localeCompare(b.name);
-                } else {
-                    return sortDirection === 'desc'
-                        ? b.timesJudged - a.timesJudged
-                        : a.timesJudged - b.timesJudged;
-                }
-            })
-            .map(team => [
-                team.name,
-                team.category,
-                team.tableNumber || 'N/A',
-                team.score.toFixed(2),
-                team.timesJudged.toString()
+        const headers = ['Rank', 'Team Name', 'Table Number', 'Score', 'Times Judged'];
+        const rows = filteredAndSortedTeams()
+            .map(result => [
+                result.rank.toString(),
+                result.team.name,
+                result.team.tableNumber || 'N/A',
+                result.score.toFixed(2),
+                result.timesJudged.toString()
             ]);
 
         const csvContent = [
@@ -249,18 +211,18 @@ export default function JudgingResults() {
     };
 
     const filteredAndSortedTeams = () => {
-        return teams
-            .filter(team => {
+        return teamResults
+            .filter(result => {
                 if (searchTerm === '') return true;
-                return team.name.toLowerCase().includes(searchTerm.toLowerCase());
+                return result.team.name.toLowerCase().includes(searchTerm.toLowerCase());
             })
             .sort((a, b) => {
                 if (sortField === 'score') {
                     return sortDirection === 'desc' ? b.score - a.score : a.score - b.score;
                 } else if (sortField === 'name') {
                     return sortDirection === 'desc'
-                        ? b.name.localeCompare(a.name)
-                        : a.name.localeCompare(b.name);
+                        ? b.team.name.localeCompare(a.team.name)
+                        : a.team.name.localeCompare(b.team.name);
                 } else {
                     return sortDirection === 'desc'
                         ? b.timesJudged - a.timesJudged
@@ -269,12 +231,8 @@ export default function JudgingResults() {
             });
     };
 
-    const teamResults = (teamId: string) => {
-        return results.filter(result => result.team._id === teamId);
-    };
-
     const getTeamById = (teamId: string) => {
-        return teams.find(team => team._id === teamId);
+        return teamResults.find(result => result.team._id === teamId);
     };
 
     const getLabelForCategory = (category: string) => {
@@ -478,9 +436,6 @@ export default function JudgingResults() {
                                                 Team
                                             </th>
                                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                                                Category
-                                            </th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                                                 Score
                                             </th>
                                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
@@ -497,44 +452,41 @@ export default function JudgingResults() {
                                     <tbody className="bg-gray-800 divide-y divide-gray-700">
                                         {filteredAndSortedTeams().length === 0 ? (
                                             <tr>
-                                                <td colSpan={7} className="px-6 py-4 text-center text-gray-400">
+                                                <td colSpan={6} className="px-6 py-4 text-center text-gray-400">
                                                     No teams found matching your search
                                                 </td>
                                             </tr>
                                         ) : (
-                                            filteredAndSortedTeams().map((team, index) => (
+                                            filteredAndSortedTeams().map((result) => (
                                                 <tr
-                                                    key={team._id}
-                                                    className={`${selectedTeam === team._id ? 'bg-indigo-900 bg-opacity-30' : ''
+                                                    key={result.team._id}
+                                                    className={`${selectedTeam === result.team._id ? 'bg-indigo-900 bg-opacity-30' : ''
                                                         } hover:bg-gray-700 cursor-pointer transition`}
-                                                    onClick={() => setSelectedTeam(selectedTeam === team._id ? null : team._id)}
+                                                    onClick={() => setSelectedTeam(selectedTeam === result.team._id ? null : result.team._id)}
                                                 >
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <div className="text-center">
-                                                            {index === 0 && (
+                                                            {result.rank === 1 && (
                                                                 <FaTrophy className="text-2xl text-yellow-400 mx-auto" title="1st Place" />
                                                             )}
-                                                            {index === 1 && (
+                                                            {result.rank === 2 && (
                                                                 <FaMedal className="text-2xl text-gray-400 mx-auto" title="2nd Place" />
                                                             )}
-                                                            {index === 2 && (
+                                                            {result.rank === 3 && (
                                                                 <FaMedal className="text-2xl text-yellow-700 mx-auto" title="3rd Place" />
                                                             )}
-                                                            {index > 2 && (
-                                                                <span className="text-gray-400 text-sm">{index + 1}</span>
+                                                            {result.rank > 3 && (
+                                                                <span className="text-gray-400 text-sm">{result.rank}</span>
                                                             )}
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap">
-                                                        <div className="text-sm font-medium text-white">{team.name}</div>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <div className="text-sm text-gray-300">{getLabelForCategory(team.category)}</div>
+                                                        <div className="text-sm font-medium text-white">{result.team.name}</div>
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <div className="flex items-center">
                                                             <span className="text-lg font-semibold text-white mr-2">
-                                                                {team.score.toFixed(1)}
+                                                                {result.score.toFixed(1)}
                                                             </span>
                                                             <div className="text-sm text-gray-500">/10</div>
                                                         </div>
@@ -542,14 +494,14 @@ export default function JudgingResults() {
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <div className="flex items-center">
                                                             <FaUserFriends className="text-gray-500 mr-2" />
-                                                            <span className="text-white">{team.timesJudged}</span>
+                                                            <span className="text-white">{result.timesJudged}</span>
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                        {team.tableNumber ? (
+                                                        {result.team.tableNumber ? (
                                                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                                                                 <FaMapMarkerAlt className="mr-1" />
-                                                                {team.tableNumber}
+                                                                {result.team.tableNumber}
                                                             </span>
                                                         ) : (
                                                             <span className="text-gray-500">—</span>
@@ -559,7 +511,7 @@ export default function JudgingResults() {
                                                         <button
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                setSelectedTeam(selectedTeam === team._id ? null : team._id);
+                                                                setSelectedTeam(selectedTeam === result.team._id ? null : result.team._id);
                                                             }}
                                                             className="text-indigo-400 hover:text-indigo-300"
                                                         >
@@ -579,32 +531,30 @@ export default function JudgingResults() {
                                         No teams found matching your search
                                     </div>
                                 ) : (
-                                    filteredAndSortedTeams().map((team, index) => (
+                                    filteredAndSortedTeams().map((result) => (
                                         <div
-                                            key={team._id}
-                                            className={`${selectedTeam === team._id ? 'ring-2 ring-indigo-500' : ''
+                                            key={result.team._id}
+                                            className={`${selectedTeam === result.team._id ? 'ring-2 ring-indigo-500' : ''
                                                 } bg-gray-800 rounded-lg shadow-md p-4 cursor-pointer hover:bg-gray-700 transition`}
-                                            onClick={() => setSelectedTeam(selectedTeam === team._id ? null : team._id)}
+                                            onClick={() => setSelectedTeam(selectedTeam === result.team._id ? null : result.team._id)}
                                         >
                                             <div className="flex justify-between items-start mb-2">
-                                                <h3 className="font-semibold">{team.name}</h3>
-                                                {index < 3 && (
-                                                    <div className="flex flex-shrink-0">
-                                                        {index === 0 && <FaTrophy className="text-yellow-400" title="1st Place" />}
-                                                        {index === 1 && <FaMedal className="text-gray-400" title="2nd Place" />}
-                                                        {index === 2 && <FaMedal className="text-yellow-700" title="3rd Place" />}
-                                                    </div>
-                                                )}
+                                                <h3 className="font-semibold">{result.team.name}</h3>
+                                                <div className="flex flex-shrink-0">
+                                                    {result.rank === 1 && <FaTrophy className="text-yellow-400" title="1st Place" />}
+                                                    {result.rank === 2 && <FaMedal className="text-gray-400" title="2nd Place" />}
+                                                    {result.rank === 3 && <FaMedal className="text-yellow-700" title="3rd Place" />}
+                                                    {result.rank > 3 && (
+                                                        <span className="text-xs bg-gray-700 px-2 py-1 rounded">#{result.rank}</span>
+                                                    )}
+                                                </div>
                                             </div>
 
                                             <div className="flex items-center mb-3">
-                                                <div className="text-xs bg-indigo-900 text-indigo-200 px-2 py-0.5 rounded">
-                                                    {getLabelForCategory(team.category)}
-                                                </div>
-                                                {team.tableNumber && (
-                                                    <div className="ml-2 text-xs bg-blue-900 text-blue-200 px-2 py-0.5 rounded flex items-center">
+                                                {result.team.tableNumber && (
+                                                    <div className="text-xs bg-blue-900 text-blue-200 px-2 py-0.5 rounded flex items-center">
                                                         <FaMapMarkerAlt className="mr-1" />
-                                                        {team.tableNumber}
+                                                        {result.team.tableNumber}
                                                     </div>
                                                 )}
                                             </div>
@@ -614,7 +564,7 @@ export default function JudgingResults() {
                                                     <div className="text-xs text-gray-400 mb-1">Score</div>
                                                     <div className="flex items-center">
                                                         <span className="text-xl font-bold text-white mr-1">
-                                                            {team.score.toFixed(1)}
+                                                            {result.score.toFixed(1)}
                                                         </span>
                                                         <span className="text-xs text-gray-400">/10</span>
                                                     </div>
@@ -624,14 +574,14 @@ export default function JudgingResults() {
                                                     <div className="text-xs text-gray-400 mb-1">Times Judged</div>
                                                     <div className="flex items-center justify-center">
                                                         <FaUserFriends className="text-gray-500 mr-1" />
-                                                        <span className="text-white">{team.timesJudged}</span>
+                                                        <span className="text-white">{result.timesJudged}</span>
                                                     </div>
                                                 </div>
 
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        setSelectedTeam(selectedTeam === team._id ? null : team._id);
+                                                        setSelectedTeam(selectedTeam === result.team._id ? null : result.team._id);
                                                     }}
                                                     className="bg-indigo-900 hover:bg-indigo-800 text-white p-2 rounded-full"
                                                 >
@@ -652,7 +602,7 @@ export default function JudgingResults() {
                                 {selectedTeam && (
                                     <>
                                         <div className="flex justify-between items-start mb-4">
-                                            <h2 className="text-xl font-semibold">{getTeamById(selectedTeam)?.name}</h2>
+                                            <h2 className="text-xl font-semibold">{getTeamById(selectedTeam)?.team.name}</h2>
                                             <button
                                                 onClick={() => setSelectedTeam(null)}
                                                 className="text-gray-400 hover:text-white"
@@ -673,6 +623,23 @@ export default function JudgingResults() {
                                             </div>
 
                                             <div className="bg-gray-700 p-3 rounded-md">
+                                                <div className="text-sm text-gray-400 mb-1">Rank</div>
+                                                <div className="flex items-center">
+                                                    {getTeamById(selectedTeam)?.rank === 1 && <FaTrophy className="text-yellow-400 mr-2" />}
+                                                    {getTeamById(selectedTeam)?.rank === 2 && <FaMedal className="text-gray-400 mr-2" />}
+                                                    {getTeamById(selectedTeam)?.rank === 3 && <FaMedal className="text-yellow-700 mr-2" />}
+                                                    <span className="text-2xl font-bold text-white">
+                                                        #{getTeamById(selectedTeam)?.rank}
+                                                    </span>
+                                                    <span className="text-sm text-gray-400 ml-1">
+                                                        of {getTeamById(selectedTeam)?.totalTeams}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-4 mb-4">
+                                            <div className="bg-gray-700 p-3 rounded-md">
                                                 <div className="text-sm text-gray-400 mb-1">Times Judged</div>
                                                 <div className="flex items-center">
                                                     <FaUserFriends className="text-gray-500 mr-2" />
@@ -681,61 +648,29 @@ export default function JudgingResults() {
                                                     </span>
                                                 </div>
                                             </div>
+
+                                            <div className="bg-gray-700 p-3 rounded-md">
+                                                <div className="text-sm text-gray-400 mb-1">Table Number</div>
+                                                <div className="flex items-center">
+                                                    {getTeamById(selectedTeam)?.team.tableNumber ? (
+                                                        <>
+                                                            <FaMapMarkerAlt className="text-blue-400 mr-2" />
+                                                            <span className="text-xl font-bold text-white">
+                                                                {getTeamById(selectedTeam)?.team.tableNumber}
+                                                            </span>
+                                                        </>
+                                                    ) : (
+                                                        <span className="text-gray-400">Not assigned</span>
+                                                    )}
+                                                </div>
+                                            </div>
                                         </div>
 
-                                        <div className="mb-6">
-                                            <h3 className="font-semibold mb-2">Judging History</h3>
-
-                                            {teamResults(selectedTeam).length === 0 ? (
-                                                <div className="bg-gray-700 p-3 rounded-md text-gray-400 text-center">
-                                                    No judging results available
-                                                </div>
-                                            ) : (
-                                                <div className="bg-gray-700 p-3 rounded-md max-h-96 overflow-y-auto">
-                                                    <div className="space-y-4">
-                                                        {teamResults(selectedTeam).map((result) => (
-                                                            <div key={result._id} className="bg-gray-800 p-3 rounded-md">
-                                                                <div className="flex justify-between items-start mb-2">
-                                                                    <div>
-                                                                        <div className="font-medium">{result.judge.name}</div>
-                                                                        <div className="text-xs text-gray-400">
-                                                                            {result.judge.type === 'external' ? 'External Judge' : 'Participant Judge'}
-                                                                        </div>
-                                                                    </div>
-                                                                    <div className="bg-yellow-900 text-yellow-300 px-2 py-1 rounded text-xs font-semibold">
-                                                                        {result.overallScore.toFixed(1)}/10
-                                                                    </div>
-                                                                </div>
-
-                                                                {Object.keys(result.scores).length > 0 && (
-                                                                    <div className="mt-2 space-y-2">
-                                                                        {Object.entries(result.scores).map(([criterionId, score]) => {
-                                                                            const criterion = criteria.find(c => c._id === criterionId);
-                                                                            return criterion ? (
-                                                                                <div key={criterionId} className="flex justify-between items-center text-sm">
-                                                                                    <span className="text-gray-400">{criterion.name}</span>
-                                                                                    <span>{score}/{criterion.maxScore}</span>
-                                                                                </div>
-                                                                            ) : null;
-                                                                        })}
-                                                                    </div>
-                                                                )}
-
-                                                                {result.comments && (
-                                                                    <div className="mt-2 pt-2 border-t border-gray-700">
-                                                                        <div className="text-xs text-gray-400 mb-1">Comments:</div>
-                                                                        <p className="text-sm text-gray-300">{result.comments}</p>
-                                                                    </div>
-                                                                )}
-
-                                                                <div className="mt-2 text-xs text-gray-500">
-                                                                    {new Date(result.timestamp).toLocaleString()}
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
+                                        <div className="mt-6">
+                                            <div className="text-sm text-gray-400 mb-2">Rating</div>
+                                            <div className="flex items-center">
+                                                {renderStars(getTeamById(selectedTeam)?.score || 0)}
+                                            </div>
                                         </div>
                                     </>
                                 )}
@@ -756,7 +691,7 @@ export default function JudgingResults() {
                     <div className="fixed inset-0 z-10 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-4">
                         <div className="bg-gray-800 rounded-lg shadow-lg max-w-4xl w-full p-6">
                             <div className="flex justify-between items-start mb-4">
-                                <h2 className="text-xl font-semibold">{getTeamById(selectedTeam)?.name} Details</h2>
+                                <h2 className="text-xl font-semibold">{getTeamById(selectedTeam)?.team.name} Details</h2>
                                 <button
                                     onClick={() => setSelectedTeam(null)}
                                     className="text-gray-400 hover:text-white"
@@ -774,12 +709,23 @@ export default function JudgingResults() {
                                         </span>
                                         <span className="text-sm text-gray-400">/10</span>
                                     </div>
+                                    <div className="mt-2">
+                                        {renderStars(getTeamById(selectedTeam)?.score || 0)}
+                                    </div>
                                 </div>
 
                                 <div className="bg-gray-700 p-4 rounded-md">
-                                    <div className="text-sm text-gray-400 mb-1">Category</div>
-                                    <div className="text-lg">
-                                        {getLabelForCategory(getTeamById(selectedTeam)?.category || '')}
+                                    <div className="text-sm text-gray-400 mb-1">Rank</div>
+                                    <div className="flex items-center">
+                                        {getTeamById(selectedTeam)?.rank === 1 && <FaTrophy className="text-yellow-400 mr-2 text-xl" />}
+                                        {getTeamById(selectedTeam)?.rank === 2 && <FaMedal className="text-gray-400 mr-2 text-xl" />}
+                                        {getTeamById(selectedTeam)?.rank === 3 && <FaMedal className="text-yellow-700 mr-2 text-xl" />}
+                                        <span className="text-3xl font-bold text-white">
+                                            #{getTeamById(selectedTeam)?.rank}
+                                        </span>
+                                        <span className="text-sm text-gray-400 ml-1">
+                                            of {getTeamById(selectedTeam)?.totalTeams}
+                                        </span>
                                     </div>
                                 </div>
 
@@ -794,50 +740,30 @@ export default function JudgingResults() {
                                 </div>
                             </div>
 
-                            <h3 className="font-semibold mb-3">Individual Judging Results</h3>
+                            <div className="bg-gray-700 p-4 rounded-md mb-4">
+                                <div className="text-sm text-gray-400 mb-1">Table Number</div>
+                                <div className="flex items-center">
+                                    {getTeamById(selectedTeam)?.team.tableNumber ? (
+                                        <>
+                                            <FaMapMarkerAlt className="text-blue-400 mr-2" />
+                                            <span className="text-xl font-bold text-white">
+                                                {getTeamById(selectedTeam)?.team.tableNumber}
+                                            </span>
+                                        </>
+                                    ) : (
+                                        <span className="text-gray-400">Not assigned</span>
+                                    )}
+                                </div>
+                            </div>
 
-                            {teamResults(selectedTeam).length === 0 ? (
-                                <div className="bg-gray-700 p-6 rounded-md text-gray-400 text-center">
-                                    No judging results available for this team
-                                </div>
-                            ) : (
-                                <div className="bg-gray-700 p-4 rounded-md">
-                                    <div className="overflow-y-auto max-h-96">
-                                        <table className="min-w-full divide-y divide-gray-600">
-                                            <thead className="bg-gray-800">
-                                                <tr>
-                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Judge</th>
-                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Type</th>
-                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Score</th>
-                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Date</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-gray-600">
-                                                {teamResults(selectedTeam).map((result) => (
-                                                    <tr key={result._id} className="hover:bg-gray-800">
-                                                        <td className="px-4 py-3 whitespace-nowrap">
-                                                            <div className="font-medium">{result.judge.name}</div>
-                                                        </td>
-                                                        <td className="px-4 py-3 whitespace-nowrap">
-                                                            <div className="text-sm">
-                                                                {result.judge.type === 'external' ? 'External Judge' : 'Participant Judge'}
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-4 py-3 whitespace-nowrap">
-                                                            <div className="text-sm font-semibold bg-gray-800 px-2 py-1 rounded inline-block">
-                                                                {result.overallScore.toFixed(1)}/10
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-400">
-                                                            {new Date(result.timestamp).toLocaleString()}
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            )}
+                            <div className="flex justify-end mt-4">
+                                <button
+                                    onClick={() => setSelectedTeam(null)}
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md"
+                                >
+                                    Close
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}
